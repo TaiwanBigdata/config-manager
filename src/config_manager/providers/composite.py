@@ -1,7 +1,7 @@
 # Implements composite pattern to aggregate multiple config providers in priority order
 from typing import List, Optional
 
-from src.config_manager.utils import logger
+from ..utils import logger
 from .base import ConfigProvider
 from ..typing import ConfigValue
 
