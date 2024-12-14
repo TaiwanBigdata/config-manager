@@ -1,6 +1,6 @@
 # Config Manager
 
-### tbi-config-manager (0.0.2)
+### tbi-config-manager (0.0.3)
 A flexible configuration management library for Python with multiple provider support (Environment, GCP Secret Manager, etc.) and easy extensibility.
 
 
