@@ -1,8 +1,9 @@
-# The Provider class
+# GCP Secret Manager provider for accessing and managing configuration secrets in Google Cloud Platform
 from typing import Optional
 from google.cloud import secretmanager
 from google.oauth2 import service_account
 from google.api_core import exceptions
+from pathlib import Path
 
 from .base import ConfigProvider
 from ..typing import ConfigValue
@@ -27,10 +28,12 @@ class GCPProvider(ConfigProvider):
             secret_prefix: Prefix for secret names
         """
         self.project_id = project_id
+        self.credentials_path = credentials_path
         self.secret_prefix = secret_prefix
 
         try:
-            if credentials_path:
+            if credentials_path and Path(credentials_path).exists():
+                # Use provided credentials file if it exists
                 credentials = service_account.Credentials.from_service_account_file(
                     credentials_path
                 )
@@ -38,6 +41,7 @@ class GCPProvider(ConfigProvider):
                     credentials=credentials
                 )
             else:
+                # Use default credentials if no file provided or file doesn't exist
                 self.client = secretmanager.SecretManagerServiceClient()
         except Exception as e:
             raise ProviderError(f"Failed to initialize GCP Secret Manager: {e}")

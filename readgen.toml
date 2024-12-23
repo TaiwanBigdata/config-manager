@@ -214,16 +214,20 @@ content = "This project is licensed under the ${project.license} License."
 [directory]
 title = "Project Structure"
 enable = true
-exclude_dirs = [
-    ".git",
-    "env",
-    "__pycache__",
+exclude_patterns = [
+    ".cursorrules",
+    ".env*",
+    "**/.DS_Store",
+    ".git/",
+    ".gitignore",
+    "env/",
+    "**/__pycache__/",
     "jupyterlab",
     "secrets",
     "build",
     "dist",
+    "secrets/*",
 ]
-exclude_files = [".env*"]
 show_files = true
 show_comments = true
 

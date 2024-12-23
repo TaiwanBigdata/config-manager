@@ -1,6 +1,6 @@
 # Config Manager
 
-### tbi-config-manager (0.0.3)
+### tbi-config-manager (0.0.4)
 A flexible configuration management library for Python with multiple provider support (Environment, GCP Secret Manager, etc.) and easy extensibility.
 
 
@@ -213,26 +213,25 @@ This project is licensed under the MIT License.
 
 ```
 config-manager/
-├── .gitignore
+├── src/
+│   └── config_manager/       # Register providers at the project level
+│       ├── providers/        # Register providers at the model level
+│       │   ├── base.py       # Abstract base class for configuration providers
+│       │   ├── composite.py  # Implements composite pattern to aggregate multiple config providers in priority order
+│       │   ├── env.py        # Local environment configuration for the `.env` provider
+│       │   ├── factory.py    # Register and initialize providers in this file
+│       │   └── gcp.py        # GCP Secret Manager provider for accessing and managing configuration secrets in Google Cloud Platform
+│       ├── utils/
+│       │   ├── cache.py
+│       │   └── logger.py
+│       ├── config.py         # Configuration manager that orchestrates multiple providers to retrieve config values
+│       ├── exceptions.py
+│       └── typing.py         # Type definitions and enums
 ├── LICENSE
-├── README.md
 ├── pyproject.toml
 ├── readgen.toml              # ReadGen - Readme Generator CLI tool configuration file
-├── requirements.txt
-└── src/
-    └── config_manager/       # Register providers at the project level
-        ├── config.py         # Configuration manager that orchestrates multiple providers to retrieve config values
-        ├── exceptions.py
-        ├── providers/        # Register providers at the model level
-        │   ├── base.py       # Abstract base class for configuration providers
-        │   ├── composite.py  # Implements composite pattern to aggregate multiple config providers in priority order
-        │   ├── env.py        # Local environment configuration for the `.env` provider
-        │   ├── factory.py    # Register and initialize providers in this file
-        │   └── gcp.py        # The Provider class
-        ├── typing.py         # Type definitions and enums
-        └── utils/
-            ├── cache.py
-            └── logger.py
+├── README.md
+└── requirements.txt
 ```
 
 
