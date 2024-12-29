@@ -24,7 +24,7 @@ class GCPProvider(ConfigProvider):
 
         Args:
             project_id: GCP project ID
-            credentials_path: Path to credentials file
+            credentials_path: Path to credentials file (absolute or relative path)
             secret_prefix: Prefix for secret names
         """
         self.project_id = project_id
@@ -32,16 +32,22 @@ class GCPProvider(ConfigProvider):
         self.secret_prefix = secret_prefix
 
         try:
-            if credentials_path and Path(credentials_path).exists():
-                # Use provided credentials file if it exists
-                credentials = service_account.Credentials.from_service_account_file(
-                    credentials_path
-                )
-                self.client = secretmanager.SecretManagerServiceClient(
-                    credentials=credentials
-                )
+            if credentials_path:
+                # Resolve to absolute path
+                resolved_path = Path(credentials_path).resolve()
+                if resolved_path.exists():
+                    credentials = service_account.Credentials.from_service_account_file(
+                        str(resolved_path)
+                    )
+                    self.client = secretmanager.SecretManagerServiceClient(
+                        credentials=credentials
+                    )
+                else:
+                    print(
+                        f"Warning: Credentials file not found at {resolved_path}, falling back to default credentials"
+                    )
+                    self.client = secretmanager.SecretManagerServiceClient()
             else:
-                # Use default credentials if no file provided or file doesn't exist
                 self.client = secretmanager.SecretManagerServiceClient()
         except Exception as e:
             raise ProviderError(f"Failed to initialize GCP Secret Manager: {e}")
