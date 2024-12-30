@@ -1,10 +1,9 @@
 # Configuration manager that orchestrates multiple providers to retrieve config values
 from enum import Enum
-from typing import Any, List, Optional, TypeVar, Union, overload
+from typing import Any, List, Optional, TypeVar, Union, overload, Dict
 from pathlib import Path
 
 from .providers.factory import ProviderFactory
-
 from .providers.composite import CompositeProvider
 from .typing import ConfigValue, PathLike, Provider
 from .exceptions import ConfigError, ConfigNotFoundError
@@ -16,14 +15,67 @@ T = TypeVar("T")
 
 
 class ConfigManager:
-    def __init__(
-        self,
-        providers: List[Provider] = [Provider.ENV],  # renamed from provider_order
+    _instance: Optional["ConfigManager"] = None
+    _instances: Dict[str, "ConfigManager"] = {}
+    _configs: Dict[str, Dict[str, Any]] = {}  # 存儲每個實例的配置
+
+    def __new__(
+        cls,
+        providers: Optional[List[Provider]] = None,
         env_file: Optional[PathLike] = None,
         project_id: Optional[str] = None,
         credentials_path: Optional[str] = None,
         secret_prefix: str = "",
         cache_enabled: bool = True,
+        instance_name: str = "default",
+    ) -> "ConfigManager":
+        """
+        Singleton pattern implementation with support for named instances.
+
+        Args:
+            instance_name: Name of the configuration instance. Useful when you need
+                         multiple configurations in the same application.
+        """
+        if instance_name not in cls._instances:
+            instance = super().__new__(cls)
+            instance._initialized = False
+            cls._instances[instance_name] = instance
+            # 存儲配置
+            cls._configs[instance_name] = {
+                "providers": providers or [Provider.ENV],
+                "env_file": env_file,
+                "project_id": project_id,
+                "credentials_path": credentials_path,
+                "secret_prefix": secret_prefix,
+                "cache_enabled": cache_enabled,
+            }
+        else:
+            # 檢查參數一致性
+            stored_config = cls._configs[instance_name]
+            new_config = {
+                "providers": providers or [Provider.ENV],
+                "env_file": env_file,
+                "project_id": project_id,
+                "credentials_path": credentials_path,
+                "secret_prefix": secret_prefix,
+                "cache_enabled": cache_enabled,
+            }
+            if stored_config != new_config:
+                logger.warning(
+                    f"Attempting to create singleton instance '{instance_name}' with "
+                    f"different parameters. Using existing instance with original parameters."
+                )
+        return cls._instances[instance_name]
+
+    def __init__(
+        self,
+        providers: Optional[List[Provider]] = None,
+        env_file: Optional[PathLike] = None,
+        project_id: Optional[str] = None,
+        credentials_path: Optional[str] = None,
+        secret_prefix: str = "",
+        cache_enabled: bool = True,
+        instance_name: str = "default",
     ):
         """
         Args:
@@ -33,11 +85,58 @@ class ConfigManager:
             credentials_path: GCP credentials path
             secret_prefix: Secret prefix for GCP
             cache_enabled: Enable caching
+            instance_name: Name of the configuration instance
         """
-        self.cache_enabled = cache_enabled
+        # Skip initialization if already initialized
+        if getattr(self, "_initialized", False):
+            return
+
+        config = self._configs[instance_name]
+        self.cache_enabled = config["cache_enabled"]
         self._setup_providers(
-            providers, env_file, project_id, credentials_path, secret_prefix
+            config["providers"],
+            config["env_file"],
+            config["project_id"],
+            config["credentials_path"],
+            config["secret_prefix"],
         )
+        self._initialized = True
+
+    @classmethod
+    def get_instance(
+        cls, instance_name: str = "default", create_if_missing: bool = False
+    ) -> "ConfigManager":
+        """
+        Get a named configuration instance.
+
+        Args:
+            instance_name: Name of the configuration instance
+            create_if_missing: If True, create a new instance with default settings
+                             when the requested instance doesn't exist
+
+        Returns:
+            The ConfigManager instance
+
+        Raises:
+            ConfigError: If instance doesn't exist and create_if_missing is False
+        """
+        if instance_name not in cls._instances:
+            if create_if_missing:
+                return cls(instance_name=instance_name)
+            raise ConfigError(f"Configuration instance '{instance_name}' not found")
+        return cls._instances[instance_name]
+
+    @classmethod
+    def reset_instance(cls, instance_name: str = "default") -> None:
+        """
+        Reset a named configuration instance.
+
+        Args:
+            instance_name: Name of the configuration instance to reset
+        """
+        if instance_name in cls._instances:
+            del cls._instances[instance_name]
+            del cls._configs[instance_name]
 
     def _setup_providers(
         self,
