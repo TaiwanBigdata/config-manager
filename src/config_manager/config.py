@@ -2,6 +2,8 @@
 from enum import Enum
 from typing import Any, List, Optional, TypeVar, Union, overload, Dict
 from pathlib import Path
+import hashlib
+import json
 
 from .providers.factory import ProviderFactory
 from .providers.composite import CompositeProvider
@@ -17,7 +19,29 @@ T = TypeVar("T")
 class ConfigManager:
     _instance: Optional["ConfigManager"] = None
     _instances: Dict[str, "ConfigManager"] = {}
-    _configs: Dict[str, Dict[str, Any]] = {}  # 存儲每個實例的配置
+    _configs: Dict[str, Dict[str, Any]] = {}  # Store configurations for each instance
+
+    @staticmethod
+    def _generate_instance_name(config: Dict[str, Any]) -> str:
+        """
+        Generate a unique instance name based on configuration parameters.
+
+        Args:
+            config: Configuration parameter dictionary
+
+        Returns:
+            A unique instance name based on configuration parameters
+        """
+        # Create a sorted copy of the configuration to ensure consistent hashing
+        sorted_config = {
+            k: sorted(v) if isinstance(v, list) else v
+            for k, v in sorted(config.items())
+            if v is not None  # Ignore None values
+        }
+
+        # Convert configuration to string and calculate hash
+        config_str = json.dumps(sorted_config, sort_keys=True)
+        return hashlib.md5(config_str.encode()).hexdigest()[:8]
 
     def __new__(
         cls,
@@ -27,44 +51,55 @@ class ConfigManager:
         credentials_path: Optional[str] = None,
         secret_prefix: str = "",
         cache_enabled: bool = True,
-        instance_name: str = "default",
+        instance_name: Optional[str] = None,
     ) -> "ConfigManager":
         """
         Singleton pattern implementation with support for named instances.
 
         Args:
-            instance_name: Name of the configuration instance. Useful when you need
-                         multiple configurations in the same application.
+            instance_name: Optional name for the configuration instance.
+                         If not provided, a unique name will be generated based on the configuration.
         """
+        # Prepare configuration
+        config = {
+            "providers": providers or [Provider.ENV],
+            "env_file": env_file,
+            "project_id": project_id,
+            "credentials_path": credentials_path,
+            "secret_prefix": secret_prefix,
+            "cache_enabled": cache_enabled,
+        }
+
+        # Generate instance name from configuration if not provided
+        if instance_name is None:
+            instance_name = cls._generate_instance_name(config)
+
         if instance_name not in cls._instances:
             instance = super().__new__(cls)
             instance._initialized = False
             cls._instances[instance_name] = instance
-            # 存儲配置
-            cls._configs[instance_name] = {
-                "providers": providers or [Provider.ENV],
-                "env_file": env_file,
-                "project_id": project_id,
-                "credentials_path": credentials_path,
-                "secret_prefix": secret_prefix,
-                "cache_enabled": cache_enabled,
-            }
+            cls._configs[instance_name] = config
         else:
-            # 檢查參數一致性
+            # Check parameter consistency
             stored_config = cls._configs[instance_name]
-            new_config = {
-                "providers": providers or [Provider.ENV],
-                "env_file": env_file,
-                "project_id": project_id,
-                "credentials_path": credentials_path,
-                "secret_prefix": secret_prefix,
-                "cache_enabled": cache_enabled,
-            }
-            if stored_config != new_config:
-                logger.warning(
-                    f"Attempting to create singleton instance '{instance_name}' with "
-                    f"different parameters. Using existing instance with original parameters."
-                )
+            if stored_config != config:
+                if instance_name == "default":
+                    # For default instance name, generate a new instance name
+                    new_instance_name = cls._generate_instance_name(config)
+                    logger.info(
+                        f"Creating new instance '{new_instance_name}' with different parameters"
+                    )
+                    instance = super().__new__(cls)
+                    instance._initialized = False
+                    cls._instances[new_instance_name] = instance
+                    cls._configs[new_instance_name] = config
+                    return cls._instances[new_instance_name]
+                else:
+                    # For custom instance names, maintain original behavior
+                    logger.warning(
+                        f"Attempting to create singleton instance '{instance_name}' with "
+                        f"different parameters. Using existing instance with original parameters."
+                    )
         return cls._instances[instance_name]
 
     def __init__(
@@ -75,7 +110,7 @@ class ConfigManager:
         credentials_path: Optional[str] = None,
         secret_prefix: str = "",
         cache_enabled: bool = True,
-        instance_name: str = "default",
+        instance_name: Optional[str] = None,
     ):
         """
         Args:
@@ -85,13 +120,18 @@ class ConfigManager:
             credentials_path: GCP credentials path
             secret_prefix: Secret prefix for GCP
             cache_enabled: Enable caching
-            instance_name: Name of the configuration instance
+            instance_name: Optional name for the configuration instance
         """
         # Skip initialization if already initialized
         if getattr(self, "_initialized", False):
             return
 
+        # Find configuration for current instance
+        instance_name = next(
+            name for name, instance in self._instances.items() if instance is self
+        )
         config = self._configs[instance_name]
+
         self.cache_enabled = config["cache_enabled"]
         self._setup_providers(
             config["providers"],
