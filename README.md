@@ -1,6 +1,6 @@
 # Config Manager
 
-### tbi-config-manager (0.0.7)
+### tbi-config-manager (0.0.8)
 A flexible configuration management library for Python with multiple provider support (Environment, GCP Secret Manager, etc.) and easy extensibility.
 
 
@@ -53,7 +53,7 @@ config = ConfigManager(
     providers=[Provider.ENV, Provider.GCP],  
     project_id="your-project-id",
     credentials_path="path/to/credentials.json",
-    secret_prefix="APP"                                  # Will use "APP_" as prefix
+    secret_prefix="APP"  # Will use "APP_" as prefix
 )
 
 # GCP has higher priority than ENV.
@@ -80,14 +80,14 @@ config = ConfigManager(
     providers=[Provider.ENV, Provider.GCP],  
     project_id="config-manager",
     credentials_path="path/to/credentials.json",
-    secret_prefix="PROD"                                 # Will use "PROD_" as prefix
+    secret_prefix="PROD"  # Will use "PROD_" as prefix
 )
 
 # Access configs as attributes
 DATABASE_URL = config.get("DATABASE_URL")
 API_KEY = config.get("API_KEY")
 ENV = config.get("ENV", default="dev")
-PROVIDER = config.get("PROVIDER", "GCP") # Optional parameter with default
+PROVIDER = config.get("PROVIDER", "GCP")  # Optional parameter with default
 ```
 
 

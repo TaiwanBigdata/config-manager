@@ -32,15 +32,22 @@ class ConfigManager:
         Returns:
             A unique instance name based on configuration parameters
         """
-        # Create a sorted copy of the configuration to ensure consistent hashing
-        sorted_config = {
-            k: sorted(v) if isinstance(v, list) else v
-            for k, v in sorted(config.items())
-            if v is not None  # Ignore None values
-        }
+        # Create a serializable copy of the configuration
+        serializable_config = {}
+        for k, v in sorted(config.items()):
+            if v is None:
+                continue
+            if isinstance(v, list) and v and isinstance(v[0], Provider):
+                # Convert Provider enum list to list of names
+                serializable_config[k] = sorted(p.name for p in v)
+            elif isinstance(v, Path):
+                # Convert Path to string
+                serializable_config[k] = str(v)
+            else:
+                serializable_config[k] = v
 
         # Convert configuration to string and calculate hash
-        config_str = json.dumps(sorted_config, sort_keys=True)
+        config_str = json.dumps(serializable_config, sort_keys=True)
         return hashlib.md5(config_str.encode()).hexdigest()[:8]
 
     def __new__(
