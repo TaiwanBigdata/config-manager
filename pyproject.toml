@@ -1,6 +1,6 @@
 [project]
 name = "tbi-config-manager"
-version = "0.0.6"
+version = "0.0.7"
 description = "A flexible configuration management library for Python with multiple provider support (Environment, GCP Secret Manager, etc.) and easy extensibility."
 readme = "README.md"
 requires-python = ">=3.8"
